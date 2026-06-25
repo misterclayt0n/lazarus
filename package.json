@@ -14,8 +14,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "oxlint . --deny-warnings",
 		"lint:fix": "oxlint . --fix",
-		"format": "oxfmt --write .",
-		"format:check": "oxfmt --check ."
+		"format": "oxfmt --write src static convex/schema.ts package.json vite.config.ts tsconfig.json convex.json vercel.json .oxlintrc.json .oxfmtrc.json",
+		"format:check": "oxfmt --check src static convex/schema.ts package.json vite.config.ts tsconfig.json convex.json vercel.json .oxlintrc.json .oxfmtrc.json"
 	},
 	"dependencies": {
 		"@sveltejs/adapter-vercel": "^6.3.4",
