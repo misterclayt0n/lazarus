@@ -1,0 +1,9 @@
+{
+	"ignorePatterns": [
+		".svelte-kit/**",
+		".vercel/**",
+		"build/**",
+		"node_modules/**",
+		"convex/_generated/**"
+	]
+}
