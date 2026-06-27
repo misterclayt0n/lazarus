@@ -11,7 +11,7 @@
 	import Zap from '@lucide/svelte/icons/zap';
 	import type { LucideIcon } from '@lucide/svelte';
 
-	let { user, children }: { user: SessionUser | null; children: Snippet } = $props();
+	let { user, children }: { user: SessionUser; children: Snippet } = $props();
 
 	type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 	const primaryNav: NavItem[] = [
@@ -88,11 +88,9 @@
 			<UserMenu {user} />
 			<div class="min-w-0">
 				<p class="truncate text-sm font-medium">
-					{user ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email : 'Guest'}
+					{[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email}
 				</p>
-				<p class="text-muted-foreground truncate text-xs">
-					{user ? 'Signed in' : 'Not signed in'}
-				</p>
+				<p class="text-muted-foreground truncate text-xs">{user.email}</p>
 			</div>
 		</div>
 	</aside>

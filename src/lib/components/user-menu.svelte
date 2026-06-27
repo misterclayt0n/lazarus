@@ -1,26 +1,20 @@
 <script lang="ts">
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import type { SessionUser } from '$lib/auth';
 
-	let { user }: { user: SessionUser | null } = $props();
+	let { user }: { user: SessionUser } = $props();
 
-	const displayName = $derived.by(() => {
-		if (!user) return '';
-		const full = [user.firstName, user.lastName].filter(Boolean).join(' ');
-		return full || user.email;
-	});
+	const displayName = $derived(
+		[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
+	);
 
-	const initials = $derived.by(() => {
-		if (!user) return '?';
-		const combined = (user.firstName?.[0] ?? '') + (user.lastName?.[0] ?? '');
-		return (combined || user.email[0] || '?').toUpperCase();
-	});
+	const initials = $derived(
+		((user.firstName?.[0] ?? '') + (user.lastName?.[0] ?? '') || user.email[0] || '?').toUpperCase()
+	);
 </script>
 
-{#if user}
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger
 			class="ring-offset-background focus-visible:ring-ring rounded-full outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
@@ -49,6 +43,3 @@
 			</form>
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
-{:else}
-	<Button href="/sign-in" size="sm">Sign in</Button>
-{/if}
