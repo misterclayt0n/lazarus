@@ -1,5 +1,5 @@
 {
 	"framework": "sveltekit",
-	"buildCommand": "bun run build",
+	"buildCommand": "bunx convex deploy --cmd 'bun run build' --cmd-url-env-var-name PUBLIC_CONVEX_URL",
 	"installCommand": "bun install"
 }
