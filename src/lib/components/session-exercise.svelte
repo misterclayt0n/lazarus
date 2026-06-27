@@ -1,17 +1,12 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { cn } from '$lib/utils';
 	import { api, type Id } from '$lib/convex/api';
 	import { convexClient } from '$lib/convex/client.svelte';
-	import { estimatedOneRepMax } from '$lib/domain/training';
-	import { formatKg } from '$lib/format';
 	import type { SessionExerciseBlock } from '$lib/domain/types';
-	import NumberField from '$lib/components/number-field.svelte';
+	import SetRow from '$lib/components/set-row.svelte';
 	import MusclePill from '$lib/components/muscle-pill.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Switch } from '$lib/components/ui/switch';
 	import Dumbbell from '@lucide/svelte/icons/dumbbell';
-	import Trophy from '@lucide/svelte/icons/trophy';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Plus from '@lucide/svelte/icons/plus';
 
@@ -21,59 +16,33 @@
 		editable = true
 	}: { sessionId: Id<'sessions'>; block: SessionExerciseBlock; editable?: boolean } = $props();
 
-	let kg = $state(0);
-	let reps = $state(0);
-	let rir = $state(2);
-	let isWarmup = $state(false);
 	let adding = $state(false);
-	let seeded = false;
 
 	const rows = $derived.by(() => {
 		let working = 0;
 		return block.sets.map((set) => ({ set, label: set.isWarmup ? 'W' : String(++working) }));
 	});
 
-	$effect(() => {
-		const last = block.sets[block.sets.length - 1];
-		if (!seeded && last) {
-			kg = last.kg;
-			reps = last.reps;
-			seeded = true;
-		}
-	});
-
 	async function addSet() {
 		const exercise = block.exercise;
 		if (!exercise || adding) return;
 		adding = true;
-		const willPR =
-			!isWarmup && kg > 0 && reps > 0 && estimatedOneRepMax(kg, reps) > block.bestE1rm + 1e-9;
+		// Prefill from the last working set so repeating a weight is one tap.
+		const last = block.sets.filter((set) => !set.isWarmup).at(-1) ?? block.sets.at(-1);
 		try {
 			await convexClient().mutation(api.sets.add, {
 				sessionId,
 				exerciseId: exercise._id,
-				kg,
-				reps,
-				rir: isWarmup ? undefined : rir,
-				isWarmup
+				kg: last?.kg ?? 0,
+				reps: last?.reps ?? 0,
+				rir: last?.rir,
+				isWarmup: false,
+				completed: false
 			});
-			if (willPR) {
-				toast.success('New PR! 🔥', {
-					description: `${exercise.name} · ${formatKg(kg)}kg × ${reps}`
-				});
-			}
-		} catch (error) {
-			toast.error('Could not log set', { description: String(error) });
+		} catch {
+			toast.error('Could not add set');
 		} finally {
 			adding = false;
-		}
-	}
-
-	async function removeSet(id: Id<'sessionSets'>) {
-		try {
-			await convexClient().mutation(api.sets.remove, { id });
-		} catch {
-			toast.error('Could not remove set');
 		}
 	}
 
@@ -119,65 +88,33 @@
 
 	{#if rows.length > 0}
 		<div class="border-border/50 border-t">
+			<div
+				class="text-muted-foreground grid grid-cols-[1.75rem_1fr_1fr_1fr_auto_auto] gap-1.5 px-3 pt-2 pb-1 text-[10px] font-medium tracking-wide uppercase"
+			>
+				<span class="text-center">Set</span>
+				<span class="text-center">Kg</span>
+				<span class="text-center">Reps</span>
+				<span class="text-center">RIR</span>
+				<span class="size-9"></span>
+				{#if editable}<span class="size-9"></span>{/if}
+			</div>
 			{#each rows as row (row.set._id)}
-				<div
-					class={cn(
-						'flex items-center gap-3 px-3 py-2 text-sm',
-						row.set.isPR && 'bg-primary/5'
-					)}
-				>
-					<span
-						class={cn(
-							'grid size-6 shrink-0 place-items-center rounded-md text-xs font-semibold tabular-nums',
-							row.set.isWarmup ? 'text-muted-foreground bg-muted' : 'bg-muted/60'
-						)}
-					>
-						{row.label}
-					</span>
-					<span class="font-medium tabular-nums">
-						{formatKg(row.set.kg)}<span class="text-muted-foreground text-xs"> kg</span>
-						<span class="text-muted-foreground mx-1">×</span>
-						{row.set.reps}
-					</span>
-					{#if !row.set.isWarmup && row.set.rir !== undefined}
-						<span class="text-muted-foreground text-xs">{row.set.rir} RIR</span>
-					{/if}
-					{#if row.set.isPR}
-						<span class="text-primary inline-flex items-center gap-1 text-xs font-semibold">
-							<Trophy class="size-3.5" /> PR
-						</span>
-					{/if}
-					<span class="flex-1"></span>
-					{#if editable}
-						<button
-							type="button"
-							onclick={() => removeSet(row.set._id)}
-							aria-label="Delete set"
-							class="text-muted-foreground hover:text-destructive transition-colors active:scale-90"
-						>
-							<Trash2 class="size-3.5" />
-						</button>
-					{/if}
-				</div>
+				<SetRow
+					set={row.set}
+					label={row.label}
+					bestE1rm={block.bestE1rm}
+					exerciseName={block.exercise?.name ?? ''}
+					{editable}
+				/>
 			{/each}
 		</div>
 	{/if}
 
 	{#if editable}
-		<div class="border-border/50 bg-background/30 border-t p-3">
-			<div class="flex items-end gap-2">
-				<div class="w-20"><NumberField bind:value={kg} step={2.5} label="kg" /></div>
-				<div class="w-16"><NumberField bind:value={reps} step={1} label="reps" /></div>
-				{#if !isWarmup}
-					<div class="w-16"><NumberField bind:value={rir} step={1} label="rir" /></div>
-				{/if}
-				<Button onclick={addSet} disabled={adding} size="icon" class="ml-auto" aria-label="Add set">
-					<Plus class="size-4" />
-				</Button>
-			</div>
-			<label class="text-muted-foreground mt-2 flex w-fit items-center gap-2 text-xs">
-				<Switch bind:checked={isWarmup} /> Warm-up set
-			</label>
+		<div class="border-border/50 border-t p-2">
+			<Button variant="ghost" class="w-full gap-1.5" onclick={addSet} disabled={adding}>
+				<Plus class="size-4" /> Add set
+			</Button>
 		</div>
 	{/if}
 </div>

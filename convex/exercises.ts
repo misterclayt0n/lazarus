@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
-import type { Doc } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type QueryCtx } from './_generated/server';
 import { muscleContribution } from './schema';
+import { estimatedOneRepMax } from './lib/training';
 
 async function withImageUrl(ctx: QueryCtx, exercise: Doc<'exercises'>) {
 	const imageUrl = exercise.pictureStorageId
@@ -87,4 +88,81 @@ export const remove = mutation({
 export const generateUploadUrl = mutation({
 	args: {},
 	handler: async (ctx) => ctx.storage.generateUploadUrl()
+});
+
+// Strength analytics for one exercise: a per-session best-e1RM trend, rep PRs,
+// and headline numbers. Counts only logged (checked) working sets.
+export const analytics = query({
+	args: { id: v.id('exercises') },
+	handler: async (ctx, args) => {
+		const exercise = await ctx.db.get(args.id);
+		if (!exercise) return null;
+		const imageUrl = exercise.pictureStorageId
+			? await ctx.storage.getUrl(exercise.pictureStorageId)
+			: null;
+
+		const allSets = await ctx.db
+			.query('sessionSets')
+			.withIndex('by_exercise', (q) => q.eq('exerciseId', args.id))
+			.take(5000);
+		const working = allSets.filter((set) => !set.isWarmup && set.completed !== false);
+
+		// One trend point per session: that session's best estimated 1RM.
+		const perSession = new Map<Id<'sessions'>, { bestE1rm: number; bestWeight: number }>();
+		for (const set of working) {
+			const e1rm = estimatedOneRepMax(set.kg, set.reps);
+			const group = perSession.get(set.sessionId);
+			if (!group) perSession.set(set.sessionId, { bestE1rm: e1rm, bestWeight: set.kg });
+			else {
+				group.bestE1rm = Math.max(group.bestE1rm, e1rm);
+				group.bestWeight = Math.max(group.bestWeight, set.kg);
+			}
+		}
+		const points: { date: number; e1rm: number; weight: number }[] = [];
+		for (const [sessionId, group] of perSession) {
+			const session = await ctx.db.get(sessionId);
+			if (!session) continue;
+			points.push({
+				date: session.startedAt,
+				e1rm: Math.round(group.bestE1rm * 10) / 10,
+				weight: group.bestWeight
+			});
+		}
+		points.sort((a, b) => a.date - b.date);
+
+		// Best weight logged at each rep count — the rep-PR table.
+		const perRep = new Map<number, { weight: number; e1rm: number; date: number }>();
+		for (const set of working) {
+			const current = perRep.get(set.reps);
+			if (!current || set.kg > current.weight) {
+				perRep.set(set.reps, {
+					weight: set.kg,
+					e1rm: Math.round(estimatedOneRepMax(set.kg, set.reps) * 10) / 10,
+					date: set.createdAt
+				});
+			}
+		}
+		const bestByReps = [...perRep.entries()]
+			.map(([reps, value]) => ({ reps, ...value }))
+			.sort((a, b) => a.reps - b.reps);
+
+		const current = points.length ? points[points.length - 1].e1rm : 0;
+		const first = points.length ? points[0].e1rm : 0;
+
+		return {
+			exercise: { ...exercise, imageUrl },
+			points,
+			bestByReps,
+			summary: {
+				workingSets: working.length,
+				sessions: points.length,
+				firstPerformed: points.length ? points[0].date : null,
+				lastPerformed: points.length ? points[points.length - 1].date : null,
+				bestE1rm: points.reduce((max, point) => Math.max(max, point.e1rm), 0),
+				bestWeight: working.reduce((max, set) => Math.max(max, set.kg), 0),
+				current,
+				trend: Math.round((current - first) * 10) / 10
+			}
+		};
+	}
 });

@@ -23,14 +23,15 @@ export function formatClock(ts: number): string {
 	return clockFormatter.format(ts);
 }
 
-/** Compact elapsed time: "45m", "1h 12m", or "—" while empty. */
+/** Stopwatch elapsed time, always with seconds: "0:05", "12:34", "1:12:34". */
 export function formatDuration(ms: number): string {
-	if (ms <= 0) return '0m';
-	const totalMinutes = Math.round(ms / 60000);
-	const hours = Math.floor(totalMinutes / 60);
-	const minutes = totalMinutes % 60;
-	if (hours === 0) return `${minutes}m`;
-	return `${hours}h ${minutes}m`;
+	const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	return hours > 0
+		? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+		: `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 /** "Today", "Yesterday", "3d ago", else the calendar day. */

@@ -45,6 +45,9 @@ export default defineSchema({
 		reps: v.number(),
 		rir: v.optional(v.number()),
 		isWarmup: v.boolean(),
+		// Checklist state: a set is "logged" once checked off. Optional so existing
+		// rows (which predate the checklist) read as logged.
+		completed: v.optional(v.boolean()),
 		createdAt: v.number()
 	})
 		.index('by_session', ['sessionId'])

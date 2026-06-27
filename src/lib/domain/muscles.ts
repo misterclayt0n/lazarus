@@ -12,16 +12,18 @@ export type MuscleGroup = {
 // against this list in the UI.
 export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
 	{ id: 'chest', label: 'Chest', region: 'Push' },
-	{ id: 'shoulders', label: 'Shoulders', region: 'Push' },
+	{ id: 'front-delts', label: 'Front Delts', region: 'Push' },
+	{ id: 'side-delts', label: 'Side Delts', region: 'Push' },
 	{ id: 'triceps', label: 'Triceps', region: 'Push' },
-	{ id: 'back', label: 'Back', region: 'Pull' },
 	{ id: 'lats', label: 'Lats', region: 'Pull' },
 	{ id: 'traps', label: 'Traps', region: 'Pull' },
+	{ id: 'rear-delts', label: 'Rear Delts', region: 'Pull' },
 	{ id: 'biceps', label: 'Biceps', region: 'Pull' },
 	{ id: 'forearms', label: 'Forearms', region: 'Pull' },
 	{ id: 'quads', label: 'Quads', region: 'Legs' },
 	{ id: 'hamstrings', label: 'Hamstrings', region: 'Legs' },
 	{ id: 'glutes', label: 'Glutes', region: 'Legs' },
+	{ id: 'adductors', label: 'Adductors', region: 'Legs' },
 	{ id: 'calves', label: 'Calves', region: 'Legs' },
 	{ id: 'abs', label: 'Abs', region: 'Core' }
 ];

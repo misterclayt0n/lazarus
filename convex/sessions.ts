@@ -17,7 +17,7 @@ async function summarize(ctx: QueryCtx, sessionId: Id<'sessions'>) {
 	let workingSets = 0;
 	let tonnageKg = 0;
 	for (const set of sets) {
-		if (set.isWarmup) continue;
+		if (set.isWarmup || set.completed === false) continue;
 		workingSets += 1;
 		tonnageKg += set.kg * set.reps;
 	}
@@ -27,7 +27,9 @@ async function summarize(ctx: QueryCtx, sessionId: Id<'sessions'>) {
 // Walk an exercise's whole set history oldest-first and flag the sets that set a
 // new estimated-1RM record at the moment they were logged. That is a real PR.
 function personalRecordSetIds(history: Doc<'sessionSets'>[]): Set<string> {
-	const ordered = history.filter((set) => !set.isWarmup).sort((a, b) => a.createdAt - b.createdAt);
+	const ordered = history
+		.filter((set) => !set.isWarmup && set.completed !== false)
+		.sort((a, b) => a.createdAt - b.createdAt);
 	const prs = new Set<string>();
 	let best = 0;
 	for (const set of ordered) {
@@ -103,7 +105,7 @@ export const get = query({
 				const prIds = personalRecordSetIds(history);
 				let bestE1rm = 0;
 				for (const set of history) {
-					if (set.isWarmup) continue;
+					if (set.isWarmup || set.completed === false) continue;
 					bestE1rm = Math.max(bestE1rm, estimatedOneRepMax(set.kg, set.reps));
 				}
 				const imageUrl = exercise?.pictureStorageId
@@ -127,7 +129,7 @@ export const get = query({
 		let tonnageKg = 0;
 		const muscleVolume: Record<string, number> = {};
 		for (const block of exercises) {
-			const working = block.sets.filter((set) => !set.isWarmup);
+			const working = block.sets.filter((set) => !set.isWarmup && set.completed !== false);
 			workingSets += working.length;
 			for (const set of working) tonnageKg += set.kg * set.reps;
 			if (block.exercise)

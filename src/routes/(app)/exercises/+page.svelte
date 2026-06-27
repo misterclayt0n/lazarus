@@ -77,7 +77,9 @@
 {:else if exercises.data && exercises.data.length > 0}
 	<div class="grid gap-3 sm:grid-cols-2">
 		{#each exercises.data as exercise (exercise._id)}
-			<ExerciseCard {exercise} />
+			<a href={`/exercises/${exercise._id}`} class="block">
+				<ExerciseCard {exercise} />
+			</a>
 		{/each}
 	</div>
 {:else}

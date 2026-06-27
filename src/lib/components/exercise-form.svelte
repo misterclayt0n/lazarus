@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Effect } from 'effect';
 	import { toast } from 'svelte-sonner';
 	import { cn } from '$lib/utils';
@@ -10,16 +11,25 @@
 	import { uploadExerciseImage } from '$lib/convex/upload';
 	import { MUSCLE_GROUPS, MUSCLE_REGIONS } from '$lib/domain/muscles';
 	import type { Priority } from '$lib/domain/muscles';
+	import type { ExerciseListItem } from '$lib/domain/types';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import XIcon from '@lucide/svelte/icons/x';
 	import Loader2 from '@lucide/svelte/icons/loader-2';
 
-	let { ondone }: { ondone?: () => void } = $props();
+	let { exercise, ondone }: { exercise?: ExerciseListItem; ondone?: () => void } = $props();
 
-	let name = $state('');
-	let selections = $state<Record<string, Priority>>({});
+	const editing = $derived(!!exercise);
+
+	let name = $state(untrack(() => exercise?.name ?? ''));
+	let selections = $state<Record<string, Priority>>(
+		untrack(() =>
+			exercise
+				? Object.fromEntries(exercise.muscleGroups.map((m) => [m.muscleGroup, m.priority]))
+				: {}
+		)
+	);
 	let file = $state<File | null>(null);
-	let previewUrl = $state<string | null>(null);
+	let previewUrl = $state<string | null>(untrack(() => exercise?.imageUrl ?? null));
 	let saving = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -38,13 +48,13 @@
 	function onFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const picked = input.files?.[0] ?? null;
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
+		if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 		file = picked;
 		previewUrl = picked ? URL.createObjectURL(picked) : null;
 	}
 
 	function clearImage() {
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
+		if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 		file = null;
 		previewUrl = null;
 		if (fileInput) fileInput.value = '';
@@ -54,23 +64,33 @@
 		if (!canSubmit) return;
 		saving = true;
 		try {
-			const pictureStorageId = file
-				? await Effect.runPromise(uploadExerciseImage(file))
-				: undefined;
+			const uploaded = file ? await Effect.runPromise(uploadExerciseImage(file)) : undefined;
 			const muscleGroups = Object.entries(selections).map(([muscleGroup, priority]) => ({
 				muscleGroup,
 				priority,
 				volumeMultiplier: priority === 'primary' ? (1 as const) : (0.5 as const)
 			}));
-			await convexClient().mutation(api.exercises.create, {
-				name: name.trim(),
-				muscleGroups,
-				pictureStorageId
-			});
-			toast.success(`${name.trim()} added`);
+			if (exercise) {
+				await convexClient().mutation(api.exercises.update, {
+					id: exercise._id,
+					name: name.trim(),
+					muscleGroups,
+					pictureStorageId: uploaded ?? exercise.pictureStorageId
+				});
+				toast.success('Exercise updated');
+			} else {
+				await convexClient().mutation(api.exercises.create, {
+					name: name.trim(),
+					muscleGroups,
+					pictureStorageId: uploaded
+				});
+				toast.success(`${name.trim()} added`);
+			}
 			ondone?.();
 		} catch (error) {
-			toast.error('Could not create exercise', { description: String(error) });
+			toast.error(editing ? 'Could not update exercise' : 'Could not create exercise', {
+				description: String(error)
+			});
 		} finally {
 			saving = false;
 		}
@@ -152,7 +172,7 @@
 		{#if saving}
 			<Loader2 class="size-4 animate-spin" /> Saving…
 		{:else}
-			Create exercise
+			{editing ? 'Save changes' : 'Create exercise'}
 		{/if}
 	</Button>
 </div>

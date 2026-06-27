@@ -27,7 +27,7 @@ export const weekly = query({
 				.take(1000);
 			const workingPerExercise = new Map<Id<'exercises'>, number>();
 			for (const set of sets) {
-				if (set.isWarmup) continue;
+				if (set.isWarmup || set.completed === false) continue;
 				workingSets += 1;
 				tonnageKg += set.kg * set.reps;
 				workingPerExercise.set(set.exerciseId, (workingPerExercise.get(set.exerciseId) ?? 0) + 1);

@@ -30,10 +30,11 @@ export const add = mutation({
 	args: {
 		sessionId: v.id('sessions'),
 		exerciseId: v.id('exercises'),
-		kg: v.number(),
-		reps: v.number(),
+		kg: v.optional(v.number()),
+		reps: v.optional(v.number()),
 		rir: v.optional(v.number()),
-		isWarmup: v.boolean()
+		isWarmup: v.optional(v.boolean()),
+		completed: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
 		await ensureExerciseInSession(ctx, args.sessionId, args.exerciseId);
@@ -47,10 +48,11 @@ export const add = mutation({
 			sessionId: args.sessionId,
 			exerciseId: args.exerciseId,
 			order: siblings.length,
-			kg: args.kg,
-			reps: args.reps,
+			kg: args.kg ?? 0,
+			reps: args.reps ?? 0,
 			rir: args.rir,
-			isWarmup: args.isWarmup,
+			isWarmup: args.isWarmup ?? false,
+			completed: args.completed ?? false,
 			createdAt: Date.now()
 		});
 	}
@@ -62,7 +64,8 @@ export const update = mutation({
 		kg: v.optional(v.number()),
 		reps: v.optional(v.number()),
 		rir: v.optional(v.number()),
-		isWarmup: v.optional(v.boolean())
+		isWarmup: v.optional(v.boolean()),
+		completed: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
 		const patch: Partial<Doc<'sessionSets'>> = {};
@@ -70,6 +73,7 @@ export const update = mutation({
 		if (args.reps !== undefined) patch.reps = args.reps;
 		if (args.rir !== undefined) patch.rir = args.rir;
 		if (args.isWarmup !== undefined) patch.isWarmup = args.isWarmup;
+		if (args.completed !== undefined) patch.completed = args.completed;
 		await ctx.db.patch(args.id, patch);
 		return null;
 	}
